@@ -25,16 +25,31 @@ public class RestQuoteAPIVerticle extends AbstractVerticle {
         vertx.eventBus().<JsonObject>consumer(GeneratorConfigVerticle.ADDRESS).toFlowable()
 
             // TODO: Extract the body of the message
+            .map(Message::body)
+                // TODO: For each message, populate the quotes map with the received quote.
+            .doOnNext(json -> {
+                quotes.put(json.getString("name"), json); // 2
+            })
 
-            // TODO: For each message, populate the quotes map with the received quote.
-
-            .subscribe();
+                .subscribe();
 
         HttpServer server = vertx.createHttpServer();
         server.requestStream().toFlowable()
             .doOnNext(request -> {
                 HttpServerResponse response = request.response()
                     .putHeader("content-type", "application/json");
+                String company = request.getParam("name");
+if (company == null) {
+    String content = Json.encodePrettily(quotes);
+    response.end(content);
+} else {
+    JsonObject quote = quotes.get(company);
+    if (quote == null) {
+        response.setStatusCode(404).end();
+    } else {
+        response.end(quote.encodePrettily());
+    }
+}
 
                 // Handle the HTTP request
                 // The request handler returns a specific quote if the `name` parameter is set, or the whole map if none.
